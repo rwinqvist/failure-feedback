@@ -1,0 +1,323 @@
+import numpy as np 
+import random 
+import logging 
+import json
+import jsbeautifier
+from environment_wrapper import EnvironmentWrapper
+
+class MCOMDP_Planner(object):
+    def __init__(self, environment: EnvironmentWrapper):
+        logging.info("\nInitializing MCOMDP Planner...")
+        self.environment = environment
+        self.states = environment.states 
+        self.env_states = environment.env_states 
+        self.goal_states = environment.goal_states 
+        self.terminal_states = environment.terminal_states 
+        self.actions = environment.actions 
+        self.action_names = environment.action_names
+        self.halt_sev = environment.halt_sev 
+
+        self.T = environment.T
+        self.R = environment.R 
+        self.O = environment.O
+        self.T_env = environment.T_env 
+        self.T_sev = environment.T_sev 
+        self.severity_levels = environment.severity_levels
+        self.severity_map = environment.severity_map 
+
+        self.recovery_rate = environment.recovery_rate
+        self.query_cost = 10
+
+        self.min_sev, self.max_sev = min(self.severity_levels), max(self.severity_levels)
+        self.s0 = environment.s0
+        self.b0 = {0: 1}
+
+        self.QMDP = environment.QMDP
+        self.VMDP = environment.VMDP 
+
+        logging.info("MCOMDP Planner initialized.\n")
+
+
+    def run(self, num_episodes):
+        logging.info("\nRunning MCOMDP Planner...")
+        rewards = np.zeros(num_episodes) 
+        severities = np.zeros(num_episodes)
+        step_count = np.zeros(num_episodes)
+        query_count = np.zeros(num_episodes)
+        failure_count = np.zeros(num_episodes)
+
+        for episode in range(num_episodes):
+            log_msg = ""
+            if episode % 10 == 0 or num_episodes < 10:
+                log_msg = f"{episode+1}/{num_episodes}"
+            rewards[episode], severities[episode], step_count[episode], query_count[episode], failure_count[episode] = self.run_episode(episode, log_msg=log_msg)
+
+        return rewards, severities, step_count, query_count, failure_count   
+        
+
+
+    def run_episode(self, episode, pick_query_before_execute=False, log_msg=""):
+        if log_msg:
+            logging.info(f"* Running episode {log_msg}")
+
+        current_state = self.s0
+        current_belief = self.b0
+        done = False 
+        failure_count = 0 
+        
+        total_reward = 0
+        step_count = 0
+        query_count = 0
+        accumulated_severity = 0 # for expert's score keeping
+
+        while not done:
+            current_env_state, current_acc_sev = current_state
+            action = self.pick_action(current_env_state, current_belief)
+            next_state, reward, severity, done = self.execute_action(current_state, action)
+
+            #print("Current: ", current_state)
+            #print("Action: ", self.action_names[action])
+            #print("Current belief: ", current_belief)
+            #print("Next: ", next_state)
+            #print("Reward: ", reward)
+            #print("Severity: ", severity)
+            #print("Done: ", done)
+            
+            if severity is not None: 
+                # get observation
+                failure_count += 1
+                accumulated_severity += severity
+                observation = self.get_observation(current_state, action, next_state)
+                next_belief = self.compute_next_belief(current_state, action, next_state, observation, current_belief)
+                #print("Observation: ", observation)
+                #print("Next belief: ", next_belief)
+
+                if pick_query_before_execute:
+                    # find condition for when to query based on old belief
+                    pass 
+
+                else:
+                    # use new belief to determine query action
+                    query = self.pick_query_after(current_env_state, next_belief)
+                    next_state = (current_env_state, next_state[1])
+
+                if query:
+                    reward -= self.query_cost 
+                    next_belief = {accumulated_severity: 1}
+                    query_count += 1
+
+            elif self.recovery_rate > 0:
+                next_belief = self.compute_recovery_belief(current_belief)
+                #print("Next recovery belief: ", next_belief)
+                    
+            step_count += 1
+            total_reward += reward 
+            current_state = next_state
+            current_belief = next_belief  
+            #input() 
+        
+        logging.debug(f"----- Episode {episode+1} finished. -----")
+        return total_reward, accumulated_severity, step_count, query_count, failure_count       
+    
+
+
+    def pick_action(self, env_state, belief):
+        acc_sevs = list(belief.keys())
+
+        if len(belief) == 1:
+            # no uncertainty, just pick best action 
+            state = (env_state, acc_sevs[0])
+            sidx = self.states.index(state)
+            optimal_actions = np.argmax(self.QMDP[sidx])
+
+            if np.size(optimal_actions == 1):
+                optimal_action = int(optimal_actions)
+            else:
+                optimal_action = int(np.random.choice(optimal_actions))
+
+        else:
+            Q = np.zeros(len(self.actions))
+            for (acc_sev, p) in belief.items():
+                state = (env_state, acc_sev)
+                sidx = self.states.index(state)
+                Q += p*self.QMDP[sidx]
+
+            Q_max = np.max(Q)
+            filter = np.isclose(Q, Q_max)
+            optimal_actions = np.array(self.actions)[filter]
+            optimal_action = int(np.random.choice(optimal_actions)) 
+
+        return optimal_action    
+    
+
+    def execute_action(self, state, action):
+        logging.debug(f"In state {state}. Executing action {self.action_names[action]}...")
+        env_state, acc_sev = state
+        sidx = self.states.index(state)
+        state_idxs = np.arange(len(self.states))
+        trans_probs = np.asarray(self.T[sidx, action]).astype("float64")
+        trans_probs /= np.sum(trans_probs)
+
+        #print("\nState: ", state)
+        #print("Action: ", self.action_names[action])
+        #print("Trans probs: ", self.T[sidx, action])
+        #input()
+
+        next_sidx = random.choices(state_idxs, trans_probs)[0]
+        next_state = next_env_state, next_acc_sev = self.states[next_sidx]
+        
+        severity = next_acc_sev - acc_sev
+        if severity > 0:
+            logging.debug("Failed to execute action.")
+            logging.debug(f"Caused severity: {severity}")
+
+        else:
+            logging.debug("Action successfully executed.")
+            severity = None 
+
+        reward = self.R[sidx, action, next_sidx]
+        done = True if next_state in self.goal_states or next_state in self.terminal_states else False
+
+        return next_state, reward, severity, done
+    
+
+    def get_observation(self, state, action, next_state):
+        logging.debug(f"Receiving observation...")
+        sidx = self.states.index(state)
+        next_sidx = self.states.index(next_state)
+
+        obs_prob = np.asarray(self.O[sidx, action, next_sidx]).astype('float64')
+        obs_prob /= np.sum(obs_prob)
+
+        observation = np.random.choice(self.severity_levels, p=obs_prob)
+        logging.debug(f"Observed severity level: {observation}")
+        return observation
+    
+
+    
+    def pick_query_after(self, env_state, belief):
+        logging.debug("Determining query action.")
+        # best action if we don't query
+        next_action_nq = self.pick_action(env_state, belief)
+
+        query_value = 0
+        # compute query value 
+        for (acc_sev, prob) in belief.items():
+            state = (env_state, acc_sev)
+            sidx = self.states.index(state)
+            next_action_q = np.argmax(self.QMDP[sidx])
+            query_value -= prob*self.QMDP[sidx, next_action_nq]
+            query_value += prob*self.QMDP[sidx, next_action_q]
+
+        query = query_value > self.query_cost 
+
+        if query_value > 0:
+            print("Env state: ", env_state)
+            print("\nnext action not q: ", self.action_names[next_action_nq])
+            print("state: ", state)
+            print("Q: ", self.QMDP[sidx])
+            print("next action q: ", self.action_names[next_action_q])
+            print(f"Query value: {query_value}")
+            print(f"Query cost: {self.query_cost}")
+            print(f"Query: {query}")
+            input()
+
+        self.map_saved = True
+        if query_value > 0 and not self.map_saved:
+            map = self.environment.environment.map
+            map_size = self.environment.environment.map_size
+            #save_map(map, map_size)
+            #self.map_saved = True
+        
+        return query
+    
+
+    def compute_next_belief(self, state, action, next_state, observation, belief):
+        logging.debug("\nComputing next belief... ")
+
+        env_state, acc_sev = state
+        sidx = self.states.index(state)
+        oidx = self.severity_levels.index(observation)
+        next_env_state = next_state[0]
+
+        current_acc_severities = list(belief.keys()) 
+
+        #print("\nCurrent belief: ", belief)
+        #print("State: ", state)
+        #print("Action: ", self.action_names[action])
+        #print("Next state: ", next_state)
+        #print("Possible sevs: ", possible_sevs)
+
+        next_acc_sevs = list(set([min(i+j, self.halt_sev) for i in current_acc_severities for j in self.severity_levels]))
+        next_belief = {}
+
+        #print("next acc sevs: ", next_acc_sevs)
+        
+        norm_const = 0
+        for next_acc_sev in next_acc_sevs:
+            s_next = (next_env_state, next_acc_sev)
+            next_sidx = self.states.index(s_next)
+            acc_belief = 0
+            for current_acc_sev in current_acc_severities:
+                s = (env_state, current_acc_sev)
+                sidx = self.states.index(s)
+                obs_prob = self.O[sidx, action, next_sidx][oidx]
+                trans_prob = self.T[sidx, action, next_sidx]
+                ind_belief = belief[current_acc_sev]*obs_prob*trans_prob
+
+                acc_belief += ind_belief
+
+                #print("\nState: ", s)
+                #print("Action: ", self.action_names[action])
+                #print("Next: ", s_next)
+                #print("Obs: ", observation)
+                #print("Obs prob: ", obs_prob)
+                #print("T: ", trans_prob)
+                #print("current belief: ", belief[current_acc_sev])
+                #print("next belief: ", ind_belief)
+                #print("acc belief: ", acc_belief)
+                #input()
+
+            next_belief[next_acc_sev] = acc_belief
+            norm_const += acc_belief
+
+        next_belief.update((key, value/norm_const) for key, value in next_belief.items())
+        belief_sum = sum(list(next_belief.values()))
+        
+        #print(next_belief)
+        #print("belief sums to: ",  belief_sum)
+        #input()
+
+        return next_belief
+    
+
+    def compute_recovery_belief(self, belief):
+        recovery = 1
+        recovery_belief = {}
+        next_belief = {}
+
+        for (acc_sev, p) in belief.items():
+            new_acc_sev = max(acc_sev - recovery, 0)
+            if new_acc_sev in recovery_belief:
+                recovery_belief[new_acc_sev] += p 
+            else:
+                recovery_belief[new_acc_sev] = p
+        
+        all_acc_sevs = list(belief.keys()) + list(recovery_belief.keys())
+        for acc_sev in all_acc_sevs:
+            p = 0
+            if acc_sev in belief:
+                p += (1 - self.recovery_rate)*belief[acc_sev]
+            if acc_sev in recovery_belief:
+                p += self.recovery_rate*recovery_belief[acc_sev]
+
+            next_belief[acc_sev] = p
+
+        print(next_belief)
+        belief_sum = np.sum(list(next_belief.values()))
+        if not np.isclose(belief_sum, 1):
+            print("ERROR! Belief does not sum to 1")
+            input()
+        return next_belief
+    
+    
