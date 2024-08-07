@@ -1,9 +1,11 @@
 import numpy as np
+import math
 import itertools 
 import logging 
+from fractions import Fraction
 
 class EnvironmentWrapper(object):
-    def __init__(self, environment, severity_levels, halt_sev, recovery_rate):
+    def __init__(self, environment, experiment_info):
         logging.info("\nWrapping environment...")
         self.environment = environment
 
@@ -16,12 +18,12 @@ class EnvironmentWrapper(object):
         self.action_info = environment.action_info 
 
         # severity info 
-        self.severity_levels = severity_levels
+        self.severity_levels = environment.severity_levels
         self.severity_map = environment.severity_map 
         self.num_sev_lvls = len(self.severity_levels)
         self.max_sev, self.min_sev = max(self.severity_levels), min(self.severity_levels)
-        self.halt_sev = halt_sev
-        self.recovery_rate = recovery_rate
+        self.halt_sev = experiment_info["halt_factor"]*self.max_sev
+        self.recovery_rate = experiment_info["recovery_rate"]
 
         # set state space 
         self.states = []
@@ -37,8 +39,9 @@ class EnvironmentWrapper(object):
         num_env_states = len(self.env_states)
         num_sev_lvls = len(self.severity_levels)
 
-        self.true_obs_prob = 1/3
-        self.severity_penalty_weight = 0
+        self.true_obs_prob = experiment_info["true_obs_prob"]
+        self.severity_penalty_weight = experiment_info["severity_penalty_weight"]
+
 
         self.T_env = environment.T
         self.T = np.zeros((num_states, num_actions, num_states))

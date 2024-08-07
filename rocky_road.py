@@ -1,3 +1,7 @@
+"""
+The RockyRoad class is an adaptation of the OpenAI Gym Frozen Lake environment: 
+"""
+
 import numpy as np
 import logging 
 from fractions import Fraction 
@@ -106,7 +110,7 @@ class RockyRoad(object):
 
 
 
-    def __init__(self, length, environment_info, use_preset_map=False, is_uneven=True):
+    def __init__(self, environment_info, use_preset_map=False, is_uneven=True):
         logging.info("Initializing Rocky Road environment...")
 
         # BUILD ROCKY ROAD
@@ -117,6 +121,7 @@ class RockyRoad(object):
         self.unpack_environment_info()
         
         # SET UP STATE SPACE
+        length = environment_info["length"]
         map_name = f"3x{length}"
         if use_preset_map and map_name in ROAD_MAPS:
             map = ROAD_MAPS[map_name]
@@ -135,10 +140,8 @@ class RockyRoad(object):
         self.s0 = (1,0)
 
         # SET UP ACTION SPACE
-        self.num_actions = num_actions = 3
+        self.num_actions = num_actions = environment_info["num_actions"]
         self.actions = np.arange(self.num_actions)
-        self.nom_success_rate = 1/2
-        self.risky_decline_factor = 0.7
         self.action_info = {action: {} for action in self.actions}
         self.action_setup()
 
@@ -146,6 +149,9 @@ class RockyRoad(object):
         self.r_goal = 150
         self.T = np.zeros((num_states, num_actions, num_states))
         self.R = np.zeros((num_states, num_actions, num_states))
+
+        # POTENTIAL SEVERITIES
+        self.severity_levels = []
         self.severity_map = {}
 
         self.fill_tables()
@@ -163,21 +169,26 @@ class RockyRoad(object):
 
 
     def action_setup(self):
-        # safest action is most expensive, riskiest action is cheapest 
-        action_costs = sorted([1] + [2*i for i in range(1, self.num_actions)], reverse=True)
-
-        # performance decline factors (in case of severities)
-        # riskier (cheaper) actions decline faster/at a higher rate 
-        performance_decline_factors = [0.9-i*0.1 for i in range(self.num_actions)]
-
-        # factor skewing severity probabilities depending on action
-        skew_factors = [1 for i in range(self.num_actions)]
+        """
+            safest action is most expensive, riskiest action is cheapest
+            performance decline factors (in case of severities)
+            riskier (cheaper) actions decline faster/at a higher rate
+            factor skewing severity probabilities depending on action
+        """
+        nom_success_rate = self.environment_info["nom_success_rate"]
+        risky_decline_factor = self.environment_info["risky_decline_factor"]
+        severity_decline_factor = self.environment_info["severity_decline_factor"]
+        skew_factor = self.environment_info["skew_factor"]
+        
+        # safest action is most expensive, riskiest action is cheapest
+        cost_incr = self.environment_info["action_cost_increment"]
+        action_costs = sorted([1] + [cost_incr*i for i in range(1, self.num_actions)], reverse=True)
 
         for action in self.actions: 
             cost = action_costs[action]
-            success_rate = self.nom_success_rate*(self.risky_decline_factor**action) # success rate of action decline with a factor (0.9)^(action risk level)
-            performance_decline_factor =  performance_decline_factors[action]       # in case of failure severities affecting the performance, the success rate decline even further according to this base rate 
-            skew_factor = skew_factors[action]
+            success_rate = nom_success_rate*(risky_decline_factor**action)            # success rate of action decline with a factor (0.9)^(action risk level)
+            performance_decline_factor =  severity_decline_factor**(action + 1)       # in case of failure severities affecting the performance, the success rate decline even further according to this base rate 
+            skew_factor = skew_factor**action
 
             self.action_info[action] = {"cost": cost, 
                                         "success_rate": success_rate,
@@ -243,10 +254,11 @@ class RockyRoad(object):
 
 
     def fill_severity_map(self):
+        self.severity_levels = self.environment_info["severities"]
         for state in self.states:
             terrain = str(bytes(self.map[state]).decode())
             if terrain in self.environment_info and self.environment_info[terrain]["type"] == "forbidden":
-                severity_probs = np.array([float(Fraction(i)) for i in self.environment_info[terrain]["nom_sev_probs"]])
+                severity_probs = np.array([i for i in self.environment_info[terrain]["nom_sev_probs"]])
                 self.severity_map[state] = severity_probs
 
 
