@@ -6,7 +6,7 @@ import jsbeautifier
 from environment_wrapper import EnvironmentWrapper
 
 class MCOMDP_Planner(object):
-    def __init__(self, environment: EnvironmentWrapper):
+    def __init__(self, environment: EnvironmentWrapper, experiment_info):
         logging.info("\nInitializing MCOMDP Planner...")
         self.environment = environment
         self.states = environment.states 
@@ -26,7 +26,7 @@ class MCOMDP_Planner(object):
         self.severity_map = environment.severity_map 
 
         self.recovery_rate = environment.recovery_rate
-        self.query_cost = 10
+        self.query_cost = experiment_info["query_cost"]
 
         self.min_sev, self.max_sev = min(self.severity_levels), max(self.severity_levels)
         self.s0 = environment.s0
@@ -45,14 +45,16 @@ class MCOMDP_Planner(object):
         step_count = np.zeros(num_episodes)
         query_count = np.zeros(num_episodes)
         failure_count = np.zeros(num_episodes)
+        query_states = [[] for i in range(num_episodes)]
+        query_beliefs = [[] for i in range(num_episodes)]
 
         for episode in range(num_episodes):
             log_msg = ""
             if episode % 10 == 0 or num_episodes < 10:
                 log_msg = f"{episode+1}/{num_episodes}"
-            rewards[episode], severities[episode], step_count[episode], query_count[episode], failure_count[episode] = self.run_episode(episode, log_msg=log_msg)
+            rewards[episode], severities[episode], step_count[episode], query_count[episode], failure_count[episode], query_states[episode], query_beliefs[episode] = self.run_episode(episode, log_msg=log_msg)
 
-        return rewards, severities, step_count, query_count, failure_count   
+        return rewards, severities, step_count, query_count, failure_count, query_states, query_beliefs   
         
 
 
@@ -68,6 +70,8 @@ class MCOMDP_Planner(object):
         total_reward = 0
         step_count = 0
         query_count = 0
+        query_states = []
+        query_beliefs = []
         accumulated_severity = 0 # for expert's score keeping
 
         while not done:
@@ -86,7 +90,7 @@ class MCOMDP_Planner(object):
             if severity is not None: 
                 # get observation
                 failure_count += 1
-                accumulated_severity += severity
+                accumulated_severity = next_state[1]
                 observation = self.get_observation(current_state, action, next_state)
                 next_belief = self.compute_next_belief(current_state, action, next_state, observation, current_belief)
                 #print("Observation: ", observation)
@@ -102,6 +106,8 @@ class MCOMDP_Planner(object):
                     next_state = (current_env_state, next_state[1])
 
                 if query:
+                    query_states.append(current_state)
+                    query_beliefs.append(current_belief)
                     reward -= self.query_cost 
                     next_belief = {accumulated_severity: 1}
                     query_count += 1
@@ -117,7 +123,8 @@ class MCOMDP_Planner(object):
             #input() 
         
         logging.debug(f"----- Episode {episode+1} finished. -----")
-        return total_reward, accumulated_severity, step_count, query_count, failure_count       
+        print("query count: ", query_count)
+        return total_reward, accumulated_severity, step_count, query_count, failure_count, query_states, query_beliefs       
     
 
 
@@ -212,15 +219,16 @@ class MCOMDP_Planner(object):
         query = query_value > self.query_cost 
 
         if query_value > 0:
-            print("Env state: ", env_state)
-            print("\nnext action not q: ", self.action_names[next_action_nq])
-            print("state: ", state)
-            print("Q: ", self.QMDP[sidx])
-            print("next action q: ", self.action_names[next_action_q])
-            print(f"Query value: {query_value}")
-            print(f"Query cost: {self.query_cost}")
-            print(f"Query: {query}")
-            input()
+            pass
+            #print("Env state: ", env_state)
+            #print("\nnext action not q: ", self.action_names[next_action_nq])
+            #print("state: ", state)
+            #print("Q: ", self.QMDP[sidx])
+            #print("next action q: ", self.action_names[next_action_q])
+            #print(f"Query value: {query_value}")
+            #print(f"Query cost: {self.query_cost}")
+            #print(f"Query: {query}")
+            #input()
 
         self.map_saved = True
         if query_value > 0 and not self.map_saved:
@@ -313,7 +321,6 @@ class MCOMDP_Planner(object):
 
             next_belief[acc_sev] = p
 
-        print(next_belief)
         belief_sum = np.sum(list(next_belief.values()))
         if not np.isclose(belief_sum, 1):
             print("ERROR! Belief does not sum to 1")
