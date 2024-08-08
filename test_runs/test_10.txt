@@ -1,0 +1,70 @@
+{
+    "sim_info": {
+        "num_episodes": 5,
+        "map": ["R", "R", "R", "R", "P", "L", "P", "P", "L", "R", "S", "A", "A", "A", "A", "A", "A", "A", "A", "G", "R", "L", "R", "P", "L", "P", "R", "L", "P", "L"]
+    },
+    "env_info": {
+        "length": 10,
+        "terrains": ["A", "C", "R", "L", "P"],
+        "severities": [1, 2, 3, 4, 5],
+        "num_actions": 3,
+        "nom_success_rate": 0.2,
+        "action_cost_increment": 10,
+        "risky_decline_factor": 0.5,
+        "severity_decline_factor": 0.8,
+        "skew_factor": 1,
+        "A": {
+            "type": "allowed",
+            "p": 1
+        },
+        "C": {
+            "type": "allowed",
+            "p": 0
+        },
+        "R": {
+            "type": "forbidden",
+            "p": 0.3333333333333333,
+            "nom_sev_probs": [0.1, 0.15, 0.2, 0.25, 0.3]
+        },
+        "L": {
+            "type": "forbidden",
+            "p": 0.3333333333333333,
+            "nom_sev_probs": [0.25, 0.25, 0.2, 0.2, 0.1]
+        },
+        "P": {
+            "type": "forbidden",
+            "p": 0.3333333333333333,
+            "nom_sev_probs": [0.2, 0.2, 0.2, 0.2, 0.2]
+        },
+        "name": "custom"
+    },
+    "exp_info": {
+        "true_obs_prob": 0.2,
+        "query_cost": 1,
+        "severity_penalty_weight": 0,
+        "recovery_rate": 0.2,
+        "halt_factor": 1.2,
+        "name": "custom"
+    },
+    "results": {
+        "rewards": [-17028.0, -23126.0, -70447.0, -19532.0, -39288.0],
+        "severities": [6.0, 6.0, 6.0, 6.0, 6.0],
+        "steps": [17490.0, 25928.0, 75172.0, 28089.0, 39711.0],
+        "queries": [0.0, 0.0, 0.0, 0.0, 0.0],
+        "failures": [2908.0, 4422.0, 12481.0, 4673.0, 6683.0],
+        "query_states": [
+            [],
+            [],
+            [],
+            [],
+            []
+        ],
+        "query_beliefs": [
+            [],
+            [],
+            [],
+            [],
+            []
+        ]
+    }
+}
