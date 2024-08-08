@@ -123,7 +123,6 @@ class MCOMDP_Planner(object):
             #input() 
         
         logging.debug(f"----- Episode {episode+1} finished. -----")
-        print("query count: ", query_count)
         return total_reward, accumulated_severity, step_count, query_count, failure_count, query_states, query_beliefs       
     
 
@@ -216,7 +215,7 @@ class MCOMDP_Planner(object):
             query_value -= prob*self.QMDP[sidx, next_action_nq]
             query_value += prob*self.QMDP[sidx, next_action_q]
 
-        query = query_value > self.query_cost 
+        query = query_value >= self.query_cost 
 
         if query_value > 0:
             pass
@@ -231,7 +230,7 @@ class MCOMDP_Planner(object):
             #input()
 
         self.map_saved = True
-        if query_value > 0 and not self.map_saved:
+        if query_value >= 0 and not self.map_saved:
             map = self.environment.environment.map
             map_size = self.environment.environment.map_size
             #save_map(map, map_size)
