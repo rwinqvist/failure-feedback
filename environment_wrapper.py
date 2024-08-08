@@ -22,7 +22,7 @@ class EnvironmentWrapper(object):
         self.severity_map = environment.severity_map 
         self.num_sev_lvls = len(self.severity_levels)
         self.max_sev, self.min_sev = max(self.severity_levels), min(self.severity_levels)
-        self.halt_sev = experiment_info["halt_factor"]*self.max_sev
+        self.halt_sev = round(experiment_info["halt_factor"]*self.max_sev)
         self.recovery_rate = experiment_info["recovery_rate"]
 
         # set state space 
