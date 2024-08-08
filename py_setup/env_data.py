@@ -9,6 +9,7 @@ ENV_INFO = {"env1":
                     "risky_decline_factor": 0.7,
                     "severity_decline_factor": 0.9,
                     "skew_factor": 1,
+                    "goal_reward": 150,
 
                     "A": {
                         "type": "allowed",
@@ -51,6 +52,7 @@ ENV_INFO = {"env1":
                     "risky_decline_factor": 0.7,
                     "severity_decline_factor": 0.9,
                     "skew_factor": 1,
+                    "goal_reward": 150,
 
                     "A": {
                         "type": "allowed",
@@ -79,8 +81,6 @@ ENV_INFO = {"env1":
                         "p": 1/3,
                         "nom_sev_probs": [0.2, 0.2, 0.2, 0.2, 0.2],
                     }
-                },
-
-
+                }
 
 }
