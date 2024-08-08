@@ -146,7 +146,7 @@ class RockyRoad(object):
         self.action_setup()
 
         # SET UP TRANSITION DYNAMICS AND REWARDS
-        self.r_goal = 150
+        self.r_goal = environment_info["goal_reward"]
         self.T = np.zeros((num_states, num_actions, num_states))
         self.R = np.zeros((num_states, num_actions, num_states))
 
