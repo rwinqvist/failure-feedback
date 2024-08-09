@@ -110,7 +110,7 @@ class RockyRoad(object):
 
 
 
-    def __init__(self, environment_info, use_preset_map=False, is_uneven=True):
+    def __init__(self, environment_info, use_preset_map=False, is_uneven=True, map=None):
         logging.info("Initializing Rocky Road environment...")
 
         # BUILD ROCKY ROAD
@@ -123,10 +123,14 @@ class RockyRoad(object):
         # SET UP STATE SPACE
         length = environment_info["length"]
         map_name = f"3x{length}"
-        if use_preset_map and map_name in ROAD_MAPS:
-            map = ROAD_MAPS[map_name]
+
+        if not map:
+            if use_preset_map and map_name in ROAD_MAPS:
+                map = ROAD_MAPS[map_name]
+            else:
+                map = generate_random_road_map(length, self.allowed_terrains_info, self.forbidden_terrains_info)
         else:
-            map = generate_random_road_map(length, self.allowed_terrains_info, self.forbidden_terrains_info)
+            map = map
 
         self.map = np.asarray(map, dtype="c")
         self.map_size = map_name 
