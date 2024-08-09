@@ -50,7 +50,7 @@ class MCOMDP_Planner(object):
 
         for episode in range(num_episodes):
             log_msg = ""
-            if episode % 10 == 0 or num_episodes < 10:
+            if episode % 100 == 0 or num_episodes < 10:
                 log_msg = f"{episode+1}/{num_episodes}"
             rewards[episode], severities[episode], step_count[episode], query_count[episode], failure_count[episode], query_states[episode], query_beliefs[episode] = self.run_episode(episode, log_msg=log_msg)
 
