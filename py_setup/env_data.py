@@ -81,6 +81,49 @@ ENV_INFO = {"env1":
                         "p": 1/3,
                         "nom_sev_probs": [0.2, 0.2, 0.2, 0.2, 0.2],
                     }
+                },
+
+
+                "env3": 
+                 {   
+                    "length": 10,
+                    "terrains": ["A", "C", "R", "L", "P"],
+                    "severities": [1, 2, 3, 4, 5],
+                    "num_actions": 5,
+                    "nom_success_rate": 0.6,
+                    "action_cost_increment": 1,
+                    "risky_decline_factor": 0.7,
+                    "severity_decline_factor": 0.8,
+                    "skew_factor": 2,
+                    "goal_reward": 1000,
+
+                    "A": {
+                        "type": "allowed",
+                        "p": 1,
+                    },
+
+                    "C": {
+                        "type": "allowed",
+                        "p": 0,
+                    },
+
+                    "R": {
+                        "type": "forbidden",
+                        "p": 1/3,
+                        "nom_sev_probs": [0.1, 0.15, 0.2, 0.25, 0.3],
+                    },
+
+                    "L": {
+                        "type": "forbidden",
+                        "p": 1/3,
+                        "nom_sev_probs": [0.25, 0.25, 0.2, 0.2, 0.1],
+                    },
+
+                    "P": {
+                        "type": "forbidden",
+                        "p": 1/3,
+                        "nom_sev_probs": [0.2, 0.2, 0.2, 0.2, 0.2],
                 }
+            }
 
 }
