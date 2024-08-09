@@ -3,7 +3,7 @@ import logging
 import json 
 import jsbeautifier
 from datetime import datetime
-from rocky_road import RockyRoad
+from rocky_road import RockyRoad, generate_random_road_map
 from mdp_solvers import ValueIteration
 from environment_wrapper import EnvironmentWrapper
 from mcomdp_planner import MCOMDP_Planner
@@ -57,12 +57,90 @@ ENV_INFO =  {
 }
 
 EXP_INFO = { 
-    "true_obs_prob": 0.1,
+    "true_obs_prob": 0.2,
     "query_cost": 1,
     "severity_penalty_weight": 0,
     "recovery_rate": 0.5,
     "halt_factor": 1.2
 }
+
+
+
+
+def mc_actions_comp():
+    pass
+
+
+def mc_length_comp():
+    num_maps = 10 
+    lengths = [5, 10, 12, 15, 18, 20]
+    num_episodes = 1000
+
+    env_info = ENV_INFO
+    exp_info = EXP_INFO
+
+    env_num, exp_num = 3, 3
+    env_name,  exp_name = f"env{env_num}", f"exp{exp_num}"
+
+    env_info = env_data.ENV_INFO[env_name]
+    exp_info = exp_data.EXP_INFO[exp_name]
+
+    env_info_data = get_env_info(env_info, env_name, remove_key="length")
+    exp_info_data = get_exp_info(exp_info, exp_name)
+    data = {"lengths": lengths, "num_maps": num_maps, "num_episodes": num_episodes, "env_info": env_info_data, "exp_info": exp_info_data}
+
+    maps = {length: [] for length in lengths}
+
+    for length in lengths:
+        logging.info(f"\nLength: {length}")
+        env_info["length"] = length
+        data[f"length_{length}"] = {}
+        for map_num in range(num_maps):
+            logging.info(f"Map: {map_num+1}/{num_maps}")
+            # create new rr env
+            valid_map = False
+            while not valid_map: 
+                map = generate_rr_map(env_info)
+                if map not in maps[length]:
+                    valid_map = True
+                    maps[length].append(map)
+            
+            rr = RockyRoad(env_info, use_preset_map=False, is_uneven=True, map=map)
+
+            env = EnvironmentWrapper(environment=rr, experiment_info=exp_info)
+
+            alg = ValueIteration(env)
+            V, Q, policy = alg.run()
+
+            env.set_VMDP(V)
+            env.set_QMDP(Q)
+
+            planner = MCOMDP_Planner(env, exp_info)
+            rewards, severities, step_count, query_count, failure_count, query_states, query_beliefs = planner.run(num_episodes)
+
+            sim_info = get_sim_info(num_episodes, rr.map)
+            results = get_results(rewards, severities, step_count, query_count, failure_count, query_states, query_beliefs)
+            data[f"length_{length}"][f"map_{map_num+1}"] = {"sim_info": sim_info, "results": results}
+
+    save_mc_data("rocky_road", "length", data)
+
+
+def generate_rr_map(env_info):
+    terrain_types = env_info["terrains"]
+    forbidden_terrains_info = {}
+    allowed_terrains_info = {}
+
+    for terrain in terrain_types:
+        if env_info[terrain]["type"] == "forbidden":
+            forbidden_terrains_info[terrain] = env_info[terrain]["p"]
+
+        elif env_info[terrain]["type"] == "allowed":
+            allowed_terrains_info[terrain] = env_info[terrain]["p"]
+
+    length = env_info["length"]
+    map = generate_random_road_map(length, allowed_terrains_info, forbidden_terrains_info)
+    return map
+
 
 
 def main_tests():
@@ -89,7 +167,7 @@ def main_tests():
         alg = ValueIteration(rr)
         V, Q, policy = alg.run()
     
-        env = EnvironmentWrapper(environment=rr, experiment_info=exp_info, )
+        env = EnvironmentWrapper(environment=rr, experiment_info=exp_info)
 
         alg = ValueIteration(env)
         V, Q, policy = alg.run()
@@ -131,7 +209,7 @@ def main():
         V, Q, policy = alg.run()
 
     
-        env = EnvironmentWrapper(environment=rr, experiment_info=exp_info, )
+        env = EnvironmentWrapper(environment=rr, experiment_info=exp_info)
 
         alg = ValueIteration(env)
         V, Q, policy = alg.run()
@@ -163,10 +241,12 @@ def get_sim_info(num_episodes, map):
     
     return data
 
-def get_env_info(env_info, env_name):
+def get_env_info(env_info, env_name, remove_key=""):
     data = env_info 
     data["name"] = env_name
-    return data
+    if remove_key:
+        del data[remove_key]
+    return data 
 
 def get_exp_info(exp_info, exp_name):
     data = exp_info 
@@ -175,6 +255,8 @@ def get_exp_info(exp_info, exp_name):
 
 def get_results(rewards, severities, step_count, query_count, failure_count, query_states, query_beliefs):
     query_rates = np.array(query_count)/np.array(failure_count)
+    relative_reward = np.array(rewards)/np.array(step_count)
+
     data = {
         "rewards": rewards.tolist(), 
         "severities": severities.tolist(),
@@ -182,6 +264,7 @@ def get_results(rewards, severities, step_count, query_count, failure_count, que
         "queries": query_count.tolist(),
         "failures": failure_count.tolist(),
         "query_rates": query_rates.tolist(),
+        "relative_reward": relative_reward.tolist(),
         "query_states": query_states, 
         "query_beliefs": query_beliefs
     }
@@ -232,6 +315,37 @@ def save_data(type, sim_info, env_info, exp_info, results):
 
 
 
+def save_mc_data(env_name, type, data):
+    path = f"mc_data/{env_name}/{type}/"
+    name = today = datetime.today().strftime('%Y-%m-%d')
+
+    fn = "info.json"
+    with open(path+fn, "r") as info_file:
+        info = json.load(info_file)
+
+    if name in info:
+        n = info[name] + 1
+    else:
+        n = 1
+
+    info[name] = n 
+    with open(path+fn, "w") as info_file:
+        json.dump(info, info_file)
+
+    filename = f"{name}_{n}"
+    options = jsbeautifier.default_options()
+    options.indent_size = 4
+    json_obj = jsbeautifier.beautify(json.dumps(data), options)
+
+    with open(path+filename+".json", "w") as json_file:
+        json.dump(data, json_file)
+
+    with open(path+filename+".txt", "w") as txt_file: 
+        txt_file.write(json_obj)
+
+
+
+    
 
 if __name__ == "__main__":
     logging.basicConfig(filename="run_experiment.log", filemode="w", format='%(asctime)s %(message)s', level=logging.DEBUG)
@@ -243,7 +357,8 @@ if __name__ == "__main__":
     logging.info("----------- Start of new experiment. -----------")
 
     #main()
-    main_tests()
+    #main_tests()
+    mc_length_comp()
 
 
     """
