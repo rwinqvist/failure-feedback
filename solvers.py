@@ -16,16 +16,15 @@ class ValueIteration(object):
         self.states = list(set(self.all_states) - set(self.goal_states) - set(self.terminal_states))
 
 
-
-    def run(self, max_iter=100, threshold=0.001, gamma=1):
+    def run(self, max_iter=500, threshold=0.01, gamma=1):
         delta = math.inf
         Q = np.zeros((len(self.all_states), len(self.actions)))
-        V = np.zeros((max_iter+2, len(self.all_states)))
+        V = np.zeros((max_iter+1, len(self.all_states)))
         policy = {}
 
         k = 1
         while delta > threshold and k <= max_iter+1:
-            print("k: ", k, "delta: ", delta)
+            #print("k: ", k, "delta: ", delta)
             delta = 0
             for state in self.states:
                 sidx = self.all_states.index(state)
@@ -37,6 +36,7 @@ class ValueIteration(object):
                         r = self.R[sidx, action, next_sidx]
                         #print("next sidx: ", next_sidx)
                         q += p*(r + gamma*V[k-1, next_sidx])
+                        """
                         if k > 1:
                             if q == 0:
                                 print("\nState: ", state)
@@ -45,9 +45,8 @@ class ValueIteration(object):
                                 print("p: ", p)
                                 print("q: ", q)
                                 input()
-
+                        """
                     Q[sidx, action] = q 
-
                 v = np.max(Q[sidx])
                 V[k, sidx] = v
                 delta = max(delta, abs(v - V[k-1, sidx]))

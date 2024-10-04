@@ -2,6 +2,7 @@ import numpy as np
 import logging 
 from rocky_road import RockyRoad
 from env_wrapper import EnvironmentWrapper
+from solvers import ValueIteration
 
 
 
@@ -10,16 +11,16 @@ MAPS = {
 }
 
 ENV_INFO =  {   
-    "length": 3,
+    "length": 20,
     "terrains": ["A", "C", "R", "L", "P"],
     "severity_levels": [1, 2, 3, 4, 5],
     "num_actions": 3,
-    "action_costs": [2, 4, 6],
-    "nom_success_rate": 0.7,
+    "action_costs": [1, 3, 6],
+    "nom_success_rate": 0.65,
     "risky_decline_factor": 0.9,
     "severity_decline_factor": 1,
     "skew_factor": 1,
-    "goal_reward": 1000,
+    "goal_reward": 200,
 
     "A": {
         "type": "allowed",
@@ -56,11 +57,11 @@ ENV_INFO =  {
 
 
 EXP_INFO = {
-    "max_acc_sev": 6,
+    "max_acc_sev": 50,
     "query_cost": 1,
     "severity_penalty_weight": 1,
     "recovery_rate": 0,
-    "true_obs_prob": 0.5,
+    "true_obs_prob": 0.2,
 }
 
 
@@ -169,6 +170,17 @@ def check_O_ew(env):
             input()
 
 
+def check_policy(env, policy, Q):
+    for (sidx, state) in enumerate(env.states):
+        if state in policy:
+            action = policy[state]
+            if action == 1:
+                print("\nState: ", state)
+                print("Policy: ", policy[state])
+                print("Q: ", Q[sidx])
+                input()
+
+
 def main(): 
     env_info = ENV_INFO
     exp_info = EXP_INFO
@@ -184,7 +196,13 @@ def main():
     env = EnvironmentWrapper(rr, exp_info)    
     #check_T_ew(env)
     #check_R_ew(env)
-    check_O_ew(env)
+    #check_O_ew(env)
+
+    alg = ValueIteration(env)
+    V, Q, policy = alg.run()
+    check_policy(env, policy, Q)
+
+
 
     
 

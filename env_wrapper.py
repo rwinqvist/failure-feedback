@@ -222,8 +222,12 @@ class EnvironmentWrapper(object):
 
 
 
-
-
-
     def get_severity_penalty(self, acc_sev):
         return -self.severity_penalty_weight*acc_sev
+    
+
+    def set_QMDP(self, Q):
+        self.QMDP = Q 
+
+    def set_VMDP(self, V): 
+        self.VMDP = V
