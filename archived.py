@@ -76,3 +76,127 @@ def build_dynamics_print(self, check_state=None):
 
                         self.R[sidx, action, next_sidx] = reward
                 input() if condition else None
+
+
+
+
+
+
+
+
+
+
+
+                for action in self.actions: 
+                    #print("Action: ", action)
+                    p_success = self.action_info[action]["success_rate"]
+
+                    performance_factor = self.get_performance_factor(action, acc_sev)
+                    #performance_decline_factor = self.action_info[action]["performance_decline_factor"]
+
+                    #print("\nState: ", state, "Action: ", action, "p_success: ", p_success, "p_success: ", p_success*performance_factor)
+                    #input()
+                    p_success = p_success*performance_factor
+                    #perturbation = self.perturb_success_rate(action, acc_sev)
+
+                    #print("p_success: ", p_success)
+                    #print("perturbation: ", perturbation)
+                    #print(perturbation*p_success)
+                    #print("Action: ", action, "p_success: ", self.action_info[action]["success_rate"], "p_success: ",  min(1, perturbation*p_success))
+                    #print("\nAction: ", action, "p_success: ", p_success)
+                    #input()
+
+                   # p_success = min(1, perturbation*p_success)
+  
+
+                    #severity_penalty_factor = (1 - ((self.max_acc_sev-acc_sev)/self.max_acc_sev))
+                    #print("\naction: ", action)
+                    #print("penalty: ", severity_penalty_factor)
+                    #p_success *= performance_decline_factor
+                    #p_success *= performance_decline_factor*severity_penalty_factor
+
+                    #exponential = math.exp(-performance_decline_factor*acc_sev*(action+1))
+                    #print("factor: ", math.exp(-exponential))
+                    #p_success = p_success*math.exp(self.alpha*-exponential)
+                    #print("p_success: ", self.action_info[action]["success_rate"], "p_success: ", p_success)
+                    #input()
+                   
+                    #print("Action: ", self.action_names[action], "p_success: ", p_success)
+
+
+
+
+
+
+# USE FOR PRINTOUTS
+def compute_next_belief(self, state, action, next_state, observation, belief):
+        """
+        Compute next belief based on current state, action and belief. 
+        """
+        logging.debug("\nComputing next belief...")
+
+        env_state, acc_sev = state 
+        sidx = self.states.index(state)
+        oidx = self.severity_levels.index(observation)
+        next_env_state, _ = next_state 
+
+        current_acc_sevs = list(belief.keys())
+
+        #print("\nCurrent belief: ", belief)
+        #print("State: ", state)
+        #print("Action: ", self.action_names[action])
+        #print("Next state: ", next_state)
+        #print("Observation: ", observation)
+        #print("O: ", np.where(self.O[sidx, action] != 0))
+        #T = self.T[sidx, action]
+        #for (tidx, t) in enumerate(T): 
+            #if (t != 0):
+                 #print(f"State: {self.states[tidx]}, p: {t}")
+        #print("Current acc sevs: ", current_acc_sevs)
+        #input()
+
+        next_acc_sevs = list(set([min(i+j, self.max_acc_sev) for i in current_acc_sevs for j in self.severity_levels]))
+        next_belief = {}
+
+        #print("severity levels: ", self.severity_levels)
+        #print("next acc sevs: ", next_acc_sevs)
+
+        norm_const = 0 
+        for next_acc_sev in next_acc_sevs: 
+            s_next = (next_env_state, next_acc_sev)
+            next_sidx = self.states.index(s_next)
+            acc_belief = 0 
+            for current_acc_sev in current_acc_sevs:
+                s = (env_state, current_acc_sev)
+                sidx = self.states.index(s)
+                obs_prob = self.O[sidx, action, next_sidx, oidx]
+                trans_prob = self.T[sidx, action, next_sidx]
+                ind_belief = belief[current_acc_sev]*obs_prob*trans_prob
+
+                acc_belief += ind_belief 
+
+                #print("\nState: ", s)
+                #print("Action: ", self.action_names[action])
+                #print("Next: ", s_next)
+                #print("Obs: ", observation)
+                #print("Obs prob: ", obs_prob)
+                #print("T: ", trans_prob)
+                #print("current belief: ", belief[current_acc_sev])
+                #print("next belief: ", ind_belief)
+                #print("acc belief: ", acc_belief)
+                #input()
+
+            next_belief[next_acc_sev] = acc_belief 
+            norm_const += acc_belief 
+
+        next_belief.update((key, value/norm_const) for key, value in next_belief.items())
+        belief_sum = sum(list(next_belief.values()))
+
+        if not np.isclose(belief_sum, 1):
+            print("belief does not sum to 1!!!!!")
+            input()
+        #print(next_belief)
+        #print("belief sums to: ",  belief_sum)
+        #input()
+
+        return next_belief

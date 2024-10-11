@@ -14,19 +14,26 @@ class ValueIteration(object):
         self.R = env.R_sas
 
         self.states = list(set(self.all_states) - set(self.goal_states) - set(self.terminal_states))
+        self.goal_terminal = list(set(self.goal_states).union(set(self.terminal_states)))
 
 
-    def run(self, max_iter=500, threshold=0.01, gamma=1):
+    def run(self, max_iter=500, threshold=0.01, gamma=0.99):
         delta = math.inf
         Q = np.zeros((len(self.all_states), len(self.actions)))
         V = np.zeros((max_iter+1, len(self.all_states)))
+
+        for state in self.goal_terminal:
+            sidx = self.all_states.index(state)
+            V[:, sidx] = self.R[sidx, 0, sidx]
+
         policy = {}
 
         k = 1
-        while delta > threshold and k <= max_iter+1:
+        while delta > threshold and k <= max_iter:
             #print("k: ", k, "delta: ", delta)
             delta = 0
             for state in self.states:
+                #gamma = self.get_discount_factor(state[1])
                 sidx = self.all_states.index(state)
                 for action in self.actions: 
                     q = 0
@@ -36,6 +43,14 @@ class ValueIteration(object):
                         r = self.R[sidx, action, next_sidx]
                         #print("next sidx: ", next_sidx)
                         q += p*(r + gamma*V[k-1, next_sidx])
+
+                        #next_state = self.all_states[next_sidx]
+                        #if next_state in self.goal_states:
+                            #print("\ngoal state: ", next_state)
+                            #print("r: ", r)
+                            #print("q: ", q)
+                            #input()
+                        
                         """
                         if k > 1:
                             if q == 0:
@@ -51,9 +66,11 @@ class ValueIteration(object):
                 V[k, sidx] = v
                 delta = max(delta, abs(v - V[k-1, sidx]))
                 policy[state] = np.argmax(Q[sidx])
+
             k += 1
 
         return V, Q, policy
+
 
 
 

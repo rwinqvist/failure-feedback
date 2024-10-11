@@ -31,7 +31,7 @@ def generate_random_road_map(length, allowed_terrains_info, forbidden_terrains_i
     board[1][0] = "S"           # start tile middle far left
     board[1][-1] = "G"          # goal tile middle far right
 
-    return ["".join(x) for x in board]
+    return board, ["".join(x) for x in board]
 
 
 def board_to_map(board):
@@ -116,15 +116,17 @@ class RockyRoad(object):
         length = environment_info["length"]
         map_name = f"3x{length}"
         self.size = length 
+        self.board = None
 
         if not map:
             if use_preset_map and map_name in ROAD_MAPS:
                 map = ROAD_MAPS[map_name]
             else:
-                map = generate_random_road_map(length, self.allowed_terrains_info, self.forbidden_terrains_info)
+                board, map = generate_random_road_map(length, self.allowed_terrains_info, self.forbidden_terrains_info)
         else:
             map = map
 
+        self.board = map
         self.map = np.asarray(map, dtype="c")
         self.map_size = map_name 
 
@@ -186,8 +188,8 @@ class RockyRoad(object):
 
         nom_success_rate = self.environment_info["nom_success_rate"]
         risky_decline_factor = self.environment_info["risky_decline_factor"]
-        severity_decline_factor = self.environment_info["severity_decline_factor"]
-        skew_factor = self.environment_info["skew_factor"]
+        #severity_decline_factor = self.environment_info["severity_decline_factor"]
+        #skew_factor = self.environment_info["skew_factor"]
 
         #cost_incr = self.environment_info["action_cost_increment"]
 
@@ -197,13 +199,17 @@ class RockyRoad(object):
         for action in self.actions: 
             cost = action_costs[action]
             success_rate = nom_success_rate*(risky_decline_factor**action)
-            performance_decline_factor = severity_decline_factor**(action + 1)
-            action_skew_factor = skew_factor**action 
+            #performance_decline_factor = severity_decline_factor**(action + 1)
+
+            #performance_decline_factor = severity_decline_factor**((self.num_actions-action)/self.num_actions)
+            #performance_decline_factor = severity_decline_factor**((self.num_actions-action))
+            #performance_decline_factor = severity_decline_factor**((self.num_actions-action))
+            #action_skew_factor = skew_factor**action 
 
             self.action_info[action] = {"cost": cost, 
                                         "success_rate": success_rate,
-                                        "performance_decline_factor": performance_decline_factor, 
-                                        "skew_factor": skew_factor, 
+                                        #"performance_decline_factor": performance_decline_factor, 
+                                        #"skew_factor": skew_factor, 
                                         "direction": RIGHT
                                         }
             
