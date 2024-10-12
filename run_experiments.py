@@ -550,18 +550,16 @@ INFO =  {"ENV_INFO":
 
 
 
-def main():
-    num_maps = 10
-    num_episodes = 200
+def main(env_info, exp_info, num_maps, num_sims):
     heuristics = ["always", "alg", "never"]
-    
+
 
     #map = ['PLLLRLPLPLPRPLRRPRPPLPPPRRRPRLLRLLLRLPPR', 'SAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAG', 'PPPRLLPLPPPLLLRRRLRPLRPLLLRLPLPPPLLRPLPR']
     bests = []
     for i in range(num_maps):
         print("\n\n---------------- NEW RUN: ", i+1, " ----------------")
-        env_info = ENV_INFO
-        exp_info = EXP_INFO
+        env_info = env_info
+        exp_info = exp_info
 
         rr = RockyRoad(env_info)
         env = EnvironmentWrapper(environment=rr, exp_info=exp_info)
@@ -576,11 +574,11 @@ def main():
             #print("\nheuristic: ", heuristic)
             r = 0
             planner = MCOMDP_Planner(env, exp_info, query_heuristic=heuristic)
-            rewards, severities, step_count, query_count, failure_count, query_states, query_beliefs = planner.run(num_episodes)
+            rewards, severities, step_count, query_count, failure_count, query_states, query_beliefs = planner.run(num_sims)
 
             avg_rewards = []
             query_rate = []
-            for i in range(num_episodes):
+            for i in range(num_sims):
                 avg_rewards.append(rewards[i]/step_count[i])
                 if failure_count[i] != 0:
                     query_rate.append(query_count[i]/failure_count[i])
@@ -620,14 +618,14 @@ def unpack_env_info(env_info):
     return allowed_terrains_info, forbidden_terrains_info
 
 
-def mc_comparison(env, exp, num_maps, num_episodes, heuristics=["alg", "always", "never"]):
+def mc_comparison(env_info, exp_info, num_maps, num_episodes, heuristics=["alg", "always", "never"]):
     """
     Num runs can be interpreted as number of different maps...
     Num episodes is how many times each map is simulated for each query heuristic
     """
 
-    env_info = env
-    exp_info = exp
+    env_info = env_info
+    exp_info = exp_info
     length = env_info["length"]
     allowed_terrains_info, forbidden_terrains_info = unpack_env_info(env_info)
 
@@ -1007,8 +1005,12 @@ if __name__ == "__main__":
     #
     #logging.info("----------- Start of new experiment. -----------")
 
-    env = "ENV20_2"
-    exp = "EXP20_2"
+
+    length = 15 
+    v = 1 
+
+    env = f"ENV{length}_{v}"
+    exp = f"EXP{length}_{v}"
     num_maps = 50
     num_sims = 500
     setup = {"env": env, 
@@ -1021,7 +1023,7 @@ if __name__ == "__main__":
     all_data = mc_comparison(SETUPS[env], SETUPS[exp], num_maps, num_sims, heuristics=heuristics)
     plot_data(setup, all_data, heuristics, block=True)
     save_data(setup, all_data, heuristics)
-    #main()
+    #main(SETUPS[env], SETUPS[exp], num_maps, num_sims)
 
 
 
