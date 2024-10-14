@@ -671,7 +671,7 @@ def mc_comparison(env_info, exp_info, num_maps, num_episodes, heuristics=["alg",
             all_data[heuristic][i] = data 
 
     return all_data
-    plot_reward_vs_failure_rate(num_maps, all_data, heuristics, block=True, subplot=False)
+    #plot_reward_vs_failure_rate(num_maps, all_data, heuristics, block=True, subplot=False)
     #boxplot(num_maps, all_data, heuristics, block=False)
     #shaded_plot(num_maps, all_data, heuristics)
 
@@ -716,7 +716,7 @@ def boxplot(num_maps, all_data, heuristics, block):
         ax_sc.errorbar(xs, ys_sc, yerr=[ys_sc - q1_sc, q3_sc - ys_sc], capsize=10)
 
     plt.legend(heuristics)
-    plt.show(block=block)
+    #plt.show(block=block)
 
 
 def shaded_plot_old(num_maps, all_data, heuristics):
@@ -764,7 +764,7 @@ def shaded_plot_old(num_maps, all_data, heuristics):
         ax_sc.fill_between(xs, ys_sc - std_sc, ys_sc + std_sc, color=c, alpha=a)
 
     plt.legend(heuristics)
-    plt.show()
+    #plt.show()
             
 
 def plot_reward_vs_failure_rate(num_maps, all_data, heuristics, block, subplot=True):
@@ -809,7 +809,7 @@ def plot_reward_vs_failure_rate(num_maps, all_data, heuristics, block, subplot=T
         #plt.show()
         
     plt.legend()
-    plt.show(block=block)
+    #plt.show(block=block)
         
 
 
@@ -969,10 +969,10 @@ def plot_data(setup, all_data, heuristics, block, env="rocky_road"):
 
 
 
-def save_data(setup, all_data, heuristics, env="rocky_road"):
+def save_data(setup, all_data, heuristics, env="rocky_road", file_ext=""):
     path = f"exp_data/{env}/"
     env, exp, num_maps, num_sims = setup["env"], setup["exp"], setup["num_maps"], setup["num_sims"]
-    fn = f"{env}_{exp}_{num_maps}maps_{num_sims}sims"
+    fn = f"{env}_{exp}_{num_maps}maps_{num_sims}sims"+file_ext
 
     # structure data for json file 
     data = {"env": env,
@@ -1006,24 +1006,45 @@ if __name__ == "__main__":
     #logging.info("----------- Start of new experiment. -----------")
 
 
-    length = 15 
-    v = 1 
+    lengths = [15, 20, 25, 30, 35, 40]
+    lengths = [35, 40]
+    v = 2
 
-    env = f"ENV{length}_{v}"
-    exp = f"EXP{length}_{v}"
-    num_maps = 50
-    num_sims = 500
-    setup = {"env": env, 
-             "exp": exp,
-             "num_maps": num_maps, 
-             "num_sims": num_sims}
+    lengths = [40]
+    versions = [4]
+    qcosts = [0, 5, 10, 20, 30, 40]
+    qcosts = [0]
+
+    num_maps = 1
+    num_sims = 5
     
-    heuristics = ["alg", "always", "never"]
+    for length in lengths:
+        for v in versions:
+            for qcost in qcosts:
+                print(f"Running experiments for length: {length} and version: {v}")
+                env = f"ENV{length}_{v}"
+                exp = f"EXP{length}_{v}"
+                env_info = SETUPS[env]
+                exp_info = SETUPS[exp]
+                exp_info["query_cost"] = qcost
 
-    all_data = mc_comparison(SETUPS[env], SETUPS[exp], num_maps, num_sims, heuristics=heuristics)
-    plot_data(setup, all_data, heuristics, block=True)
-    save_data(setup, all_data, heuristics)
-    #main(SETUPS[env], SETUPS[exp], num_maps, num_sims)
+                file_ext = f"_qcost_{qcost}"
+
+                setup = {"env": env, 
+                        "exp": exp,
+                        "num_maps": num_maps, 
+                        "num_sims": num_sims}
+                
+                
+                heuristics = ["alg", "always", "never"]
+
+                print(env_info)
+                print(exp_info)
+
+                all_data = mc_comparison(env_info, exp_info, num_maps, num_sims, heuristics=heuristics)
+                #plot_data(setup, all_data, heuristics, block=False)
+                save_data(setup, all_data, heuristics, file_ext)
+                #main(SETUPS[env], SETUPS[exp], 10, 100)
 
 
 
