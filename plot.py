@@ -225,8 +225,8 @@ def main():
     env = "rocky_road"
     path = f"exp_data/{env}/"
 
-    lengths = [20, 25, 30, 35, 40]
-    v = 1 
+    lengths = [15, 20, 25, 30, 35]
+    v = 2
     num_maps = 50 
     num_sims = 500
 
